@@ -100,6 +100,7 @@ download_yunikorn() {
         colorful blue bold "\nDownloading yunikorn-k8shim..." && git clone https://github.com/apache/yunikorn-k8shim.git
         colorful blue bold "\nDownloading yunikorn-scheduler-interface..." && git clone https://github.com/apache/yunikorn-scheduler-interface.git
         colorful blue bold "\nDownloading yunikorn-web..." && git clone https://github.com/apache/yunikorn-web.git
+        colorful blue bold "\nDownloading yunikorn-release..." && git clone https://github.com/apache/yunikorn-release.git
     else
         colorful blue bold "\nDownloading yunikorn-core..."
         curl -fsSL -o yunikorn-core.tar.gz https://github.com/apache/yunikorn-core/archive/refs/tags/${YUNIKORN_VERSION}.tar.gz
@@ -120,6 +121,11 @@ download_yunikorn() {
         curl -fsSL -o yunikorn-web.tar.gz https://github.com/apache/yunikorn-web/archive/refs/tags/${YUNIKORN_VERSION}.tar.gz
         tar -xzvf yunikorn-web.tar.gz -C ~/yunikorn && rm -f ~/yunikorn/yunikorn-web.tar.gz
         mv ~/yunikorn/yunikorn-web-${YUNIKORN_VERSION#v} ~/yunikorn/yunikorn-web
+
+        colorful blue bold "\nDownloading yunikorn-release..."
+        curl -fsSL -o yunikorn-release.tar.gz https://github.com/apache/yunikorn-release/archive/refs/tags/${YUNIKORN_VERSION}.tar.gz
+        tar -xzvf yunikorn-release.tar.gz -C ~/yunikorn && rm -f ~/yunikorn/yunikorn-release.tar.gz
+        mv ~/yunikorn/yunikorn-release-${YUNIKORN_VERSION#v} ~/yunikorn/yunikorn-release
     fi
 }
 
@@ -176,6 +182,19 @@ build_yunikorn() {
 deploy_yunikorn() {
     new_page
 
+    colorful blue bold "Choose deployment method\n"
+    colorful green bold " 1. Helm"
+    colorful green bold " 2. Kubectl"
+
+    echo -e -n "\nPlease select method: " && read method_tag
+
+    if [[ $method_tag != "1" && $method_tag != "2" ]]; then
+        colorful red bold "Invalid Option!"
+        return 0
+    fi
+
+    new_page
+
     colorful blue bold "Choose yunikorn deployment modes\n"
     colorful green bold " 1. Standard mode"
     colorful green bold " 2. Plugin mode"
@@ -189,60 +208,84 @@ deploy_yunikorn() {
 
     new_page
     
-    cd ~/yunikorn/yunikorn-k8shim/deployments/scheduler
+    if [[  $method_tag == "1" ]]; then
+        cd ~/yunikorn/yunikorn-release/
 
-    if [[ $mode_tag == "1" ]]; then
-        colorful yellow bold "Deploy yunikorn standard mode.\n"
+        
 
-        colorful blue bold "Create yunikorn namespace."
-        kubectl create ns yunikorn
+        colorful yellow bold "Undone!\n"
+        return 0
+        ################ TODO ##################
 
-        # Setup RBAC for Scheduler
-        colorful blue bold "\nSetup RBAC for Scheduler."
-        kubectl create -f yunikorn-rbac.yaml -n yunikorn
 
-        # Create the ConfigMap
-        colorful blue bold "\nCreate the ConfigMap."
-        kubectl create -f yunikorn-configs.yaml -n yunikorn
+    elif [[ $method_tag == "2" ]]; then
+        cd ~/yunikorn/yunikorn-k8shim/deployments/scheduler
 
-        # Deploy the Scheduler
-        colorful blue bold "\nDeploy the Scheduler."
-        sed 's/image: apache/image: yunikorn/g' scheduler-load.yaml | kubectl create -f - -n yunikorn
+        if [[ $mode_tag == "1" ]]; then
+            colorful yellow bold "Deploy yunikorn standard mode.\n"
 
-        # Setup RBAC for Admission Controller
-        colorful blue bold "\nSetup RBAC for Admission Controller."
-        kubectl create -f admission-controller-rbac.yaml -n yunikorn
+            colorful blue bold "Create yunikorn namespace."
+            kubectl create ns yunikorn
 
-        # Create the Secret
-        colorful blue bold "\nCreate the Secret."
-        kubectl create -f admission-controller-secrets.yaml -n yunikorn
+            # Setup RBAC for Scheduler
+            colorful blue bold "\nSetup RBAC for Scheduler."
+            kubectl create -f yunikorn-rbac.yaml -n yunikorn
 
-        # Deploy the Admission Controller
-        colorful blue bold "\nDeploy the Admission Controller."
-        sed 's/image: apache/image: yunikorn/g' admission-controller.yaml | kubectl create -f - -n yunikorn
+            # Create the ConfigMap
+            colorful blue bold "\nCreate the ConfigMap."
+            kubectl create -f yunikorn-configs.yaml -n yunikorn
 
-    elif [[ $mode_tag == "2" ]]; then
-        colorful yellow bold "Deploy yunikorn plugin mode.\n"
+            # Deploy the Scheduler
+            colorful blue bold "\nDeploy the Scheduler."
+            sed 's/image: apache/image: yunikorn/g' scheduler-load.yaml | kubectl create -f - -n yunikorn
 
-        colorful blue bold "Create yunikorn namespace."
-        kubectl create ns yunikorn
+            # Setup RBAC for Admission Controller
+            colorful blue bold "\nSetup RBAC for Admission Controller."
+            kubectl create -f admission-controller-rbac.yaml -n yunikorn
 
-        # Setup RBAC for Scheduler
-        colorful blue bold "\nSetup RBAC for Scheduler."
-        kubectl create -f yunikorn-rbac.yaml -n yunikorn
+            # Create the Secret
+            colorful blue bold "\nCreate the Secret."
+            kubectl create -f admission-controller-secrets.yaml -n yunikorn
 
-        # Create the ConfigMap
-        colorful blue bold "\nCreate the ConfigMap."
-        kubectl create -f yunikorn-configs.yaml -n yunikorn
+            # Deploy the Admission Controller
+            colorful blue bold "\nDeploy the Admission Controller."
+            sed 's/image: apache/image: yunikorn/g' admission-controller.yaml | kubectl create -f - -n yunikorn
 
-        colorful blue bold "\nDeploy the Scheduler."
-        sed 's/image: apache/image: yunikorn/g' plugin.yaml | kubectl create -f - -n yunikorn
+        elif [[ $mode_tag == "2" ]]; then
+            colorful yellow bold "Deploy yunikorn plugin mode.\n"
+
+            colorful blue bold "Create yunikorn namespace."
+            kubectl create ns yunikorn
+
+            # Setup RBAC for Scheduler
+            colorful blue bold "\nSetup RBAC for Scheduler."
+            kubectl create -f yunikorn-rbac.yaml -n yunikorn
+
+            # Create the ConfigMap
+            colorful blue bold "\nCreate the ConfigMap."
+            kubectl create -f yunikorn-configs.yaml -n yunikorn
+
+            colorful blue bold "\nDeploy the Scheduler."
+            sed 's/image: apache/image: yunikorn/g' plugin.yaml | kubectl create -f - -n yunikorn
+
+            # Setup RBAC for Admission Controller
+            colorful blue bold "\nSetup RBAC for Admission Controller."
+            kubectl create -f admission-controller-rbac.yaml -n yunikorn
+
+            # Create the Secret
+            colorful blue bold "\nCreate the Secret."
+            kubectl create -f admission-controller-secrets.yaml -n yunikorn
+
+            # Deploy the Admission Controller
+            colorful blue bold "\nDeploy the Admission Controller."
+            sed 's/image: apache/image: yunikorn/g' admission-controller.yaml | kubectl create -f - -n yunikorn
+        fi
+
+        sleep 3
+
+        colorful blue bold "\nCurrent Pod Status."
+        kubectl get pods -n yunikorn
     fi
-
-    sleep 3
-
-    colorful blue bold "\nCurrent Pod Status."
-    kubectl get pods -n yunikorn
 }
 
 delete_yunikorn() {
